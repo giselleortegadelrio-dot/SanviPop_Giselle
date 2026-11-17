@@ -1,6 +1,7 @@
 import { AuthService } from "./classes/auth-service";
 import { MyGeolocation } from "./classes/my-geolocation";
 import type { LoginData } from "./interfaces/user";
+import type { ErrorResponse } from "./interfaces/responses";
 
 const authService = new AuthService();
 const loginForm = document.getElementById("form-login") as HTMLFormElement;
@@ -35,7 +36,7 @@ loginForm.addEventListener("submit", async (event: Event): Promise<void> => {
     await authService.login(loginData);
     location.assign("index.html");
   } catch (error) {
-    const message = (error as { error?: string }).error ?? "Could not log in";
+    const message = (error as ErrorResponse).error ?? "Could not log in";
     alert(message);
   }
 });

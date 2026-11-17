@@ -41,3 +41,10 @@ export interface RatingsResponse {
 export interface SingleRatingResponse {
   rating: Rating;
 }
+
+export interface ErrorResponse {
+  statusCode?: number;
+  status?: number;
+  message?: string | string[];
+  error?: string;
+}

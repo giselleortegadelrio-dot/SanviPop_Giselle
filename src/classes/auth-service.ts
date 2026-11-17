@@ -1,6 +1,6 @@
 import { SERVER } from "../constants";
 import type { TokenResponse } from "../interfaces/responses";
-import type { LoginData } from "../interfaces/user";
+import type { LoginData, RegisterData } from "../interfaces/user";
 import { Http } from "./http";
 
 export class AuthService {
@@ -20,6 +20,17 @@ export class AuthService {
       userLogin
     );
     localStorage.setItem("token", resp.accessToken);
+  }
+
+  /**
+   * Registra un nuevo usuario.
+   * @param userInfo Datos del usuario, incluida su foto en base64.
+   */
+  async register(userInfo: RegisterData): Promise<void> {
+    await this.#http.post<unknown, RegisterData>(
+      `${SERVER}/auth/register`,
+      userInfo
+    );
   }
 
   /** Comprueba si el token guardado sigue siendo válido (si no, lanza error). */
