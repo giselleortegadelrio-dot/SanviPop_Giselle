@@ -48,6 +48,41 @@ export class ProductsService {
     );
     return resp.product;
   }
+
+  /**
+   * Obtiene el detalle de un producto.
+   * @param id Id del producto.
+   */
+  async get(id: number): Promise<Product> {
+    const resp = await this.#http.get<SingleProductResponse>(
+      `${SERVER}/products/${id}`
+    );
+    return resp.product;
+  }
+
+  /**
+   * Compra un producto como el usuario autenticado.
+   * @param id Id del producto.
+   */
+  async buy(id: number): Promise<void> {
+    await this.#http.put<null, null>(`${SERVER}/products/${id}/buy`);
+  }
+
+  /**
+   * Añade un producto a los favoritos del usuario autenticado.
+   * @param id Id del producto.
+   */
+  async addBookmark(id: number): Promise<void> {
+    await this.#http.post<null, null>(`${SERVER}/products/${id}/bookmarks`);
+  }
+
+  /**
+   * Quita un producto de los favoritos del usuario autenticado.
+   * @param id Id del producto.
+   */
+  async removeBookmark(id: number): Promise<void> {
+    await this.#http.delete<null>(`${SERVER}/products/${id}/bookmarks`);
+  }
   /**
    * Elimina un producto (solo puede hacerlo su propietario).
    * @param id Id del producto.

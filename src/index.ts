@@ -1,6 +1,7 @@
 import { AuthService } from "./classes/auth-service";
 import { ProductsService } from "./classes/products-service";
 import type { Product } from "./interfaces/product";
+import { Formatters } from "./classes/formatters";
 
 const authService = new AuthService();
 const productsService = new ProductsService();
@@ -17,20 +18,6 @@ const productTemplate = document.getElementById(
 ) as HTMLTemplateElement;
 const loadMoreButton = document.getElementById("loadMore") as HTMLButtonElement;
 const logoutLink = document.getElementById("logout") as HTMLAnchorElement;
-
-const dateFormatter = new Intl.DateTimeFormat("es-ES", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
-const priceFormatter = new Intl.NumberFormat("es-ES", {
-  style: "currency",
-  currency: "EUR",
-});
-const distanceFormatter = new Intl.NumberFormat("es-ES", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 
 // Filtros que llegan en la URL (por ejemplo, index.html?user=31&status=selling)
 const urlParams = new URLSearchParams(location.search);
@@ -77,7 +64,7 @@ function createProductCard(product: Product): DocumentFragment {
   image.src = product.mainPhoto;
   image.alt = product.title;
   category.textContent = product.category.name;
-  price.textContent = priceFormatter.format(product.price);
+  price.textContent = Formatters.price.format(product.price);
   title.href = productUrl;
   title.textContent = product.title;
   description.textContent = product.description;
@@ -86,9 +73,9 @@ function createProductCard(product: Product): DocumentFragment {
   avatar.alt = product.owner.name;
   ownerName.href = ownerUrl;
   ownerName.textContent = product.owner.name;
-  date.textContent = dateFormatter.format(new Date(product.datePublished));
+  date.textContent = Formatters.date.format(new Date(product.datePublished));
   views.textContent = String(product.numVisits);
-  distance.textContent = `${distanceFormatter.format(product.distance)} km`;
+  distance.textContent = `${Formatters.distance.format(product.distance)} km`;
 
   // Solo el propietario puede borrar el producto
   if (product.mine) {
