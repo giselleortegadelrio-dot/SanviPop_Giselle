@@ -3,11 +3,16 @@ import { ErrorUtils } from "./classes/error-utils";
 import { Formatters } from "./classes/formatters";
 import { MapService } from "./classes/map-service";
 import { ProductsService } from "./classes/products-service";
+import { RatingsService } from "./classes/ratings-service";
+import { UserService } from "./classes/user-service";
 import type { Product } from "./interfaces/product";
+import type { RatingInsert } from "./interfaces/rating";
 import type { User } from "./interfaces/user";
 
 const authService = new AuthService();
 const productsService = new ProductsService();
+const ratingsService = new RatingsService();
+const userService = new UserService();
 
 const mainPhoto = document.getElementById("mainPhoto") as HTMLImageElement;
 const category = document.getElementById("category") as HTMLSpanElement;
@@ -31,6 +36,26 @@ const ownerEmail = document.getElementById("ownerEmail") as HTMLElement;
 const transactionCard = document.getElementById(
   "transactionCard"
 ) as HTMLDivElement;
+const ratingsRow = document.getElementById("ratingsRow") as HTMLDivElement;
+const pendingRatingCard = document.getElementById(
+  "pendingRatingCard"
+) as HTMLDivElement;
+const rateBtn = document.getElementById(
+  "btnRateTransaction"
+) as HTMLButtonElement;
+const ratingFormContainer = document.getElementById(
+  "ratingFormContainer"
+) as HTMLDivElement;
+const ratingForm = document.getElementById("ratingForm") as HTMLFormElement;
+const cancelRatingBtn = document.getElementById(
+  "btnCancelRating"
+) as HTMLButtonElement;
+const dateTransaction = document.getElementById(
+  "dateTransaction"
+) as HTMLSpanElement;
+const ratingTemplate = document.getElementById(
+  "ratingTemplate"
+) as HTMLTemplateElement;
 const logoutLink = document.getElementById("logout") as HTMLAnchorElement;
 
 /** Texto y color de la etiqueta según el estado del producto. */
@@ -55,10 +80,109 @@ function renderBookmark(bookmarked: boolean): void {
 }
 
 /**
+ * Indica si el usuario autenticado es el comprador del producto.
+ * @param product Producto a comprobar.
+ */
+async function isBuyer(product: Product): Promise<boolean> {
+  if (product.mine || !product.soldTo) return false;
+  const me = await userService.getProfile();
+  return product.soldTo.id === me.id;
+}
+
+/**
+ * Crea la tarjeta con la valoración de uno de los participantes.
+ * @param role Texto que indica el papel: "Buyer" o "Seller".
+ * @param user Usuario que hizo la valoración.
+ * @param score Puntuación de 1 a 5.
+ * @param comment Comentario de la valoración.
+ */
+function createRatingCard(
+  role: string,
+  user: User,
+  score: number,
+  comment: string
+): DocumentFragment {
+  const fragment = ratingTemplate.content.cloneNode(true) as DocumentFragment;
+
+  const photo = fragment.querySelector(".rating-photo") as HTMLImageElement;
+  const userName = fragment.querySelector(".rating-name") as HTMLDivElement;
+  const email = fragment.querySelector(".rating-email") as HTMLElement;
+  const stars = fragment.querySelector(".rating-stars") as HTMLSpanElement;
+  const scoreBadge = fragment.querySelector(".rating-score") as HTMLSpanElement;
+  const commentText = fragment.querySelector(
+    ".rating-comment"
+  ) as HTMLParagraphElement;
+
+  photo.src = user.photo;
+  photo.alt = user.name;
+  userName.textContent = `${role}: ${user.name}`;
+  email.textContent = user.email;
+  stars.textContent = "★".repeat(score) + "☆".repeat(5 - score);
+  scoreBadge.textContent = `${score} / 5`;
+  commentText.textContent = `"${comment}"`;
+
+  return fragment;
+}
+
+/**
+ * Muestra la tarjeta de venta y valoraciones (solo si el producto está vendido).
+ * @param product Producto a mostrar.
+ */
+async function showTransaction(product: Product): Promise<void> {
+  const sold = product.status === 3;
+  transactionCard.classList.toggle("d-none", !sold);
+  if (!sold) return;
+
+  // Al repintar (tras comprar o valorar) quitamos las valoraciones anteriores
+  ratingsRow.querySelectorAll(".rating-card").forEach(card => card.remove());
+
+  const buyerRating = product.rating?.buyerRating;
+  const sellerRating = product.rating?.sellerRating;
+  const transactionDate = product.rating?.dateTransaction;
+
+  dateTransaction.textContent = transactionDate
+    ? Formatters.dateTime.format(new Date(transactionDate))
+    : "";
+
+  const cards: DocumentFragment[] = [];
+  if (product.soldTo && typeof buyerRating === "number") {
+    cards.push(
+      createRatingCard(
+        "Buyer",
+        product.soldTo,
+        buyerRating,
+        product.rating?.buyerComment ?? ""
+      )
+    );
+  }
+  if (typeof sellerRating === "number") {
+    cards.push(
+      createRatingCard(
+        "Seller",
+        product.owner,
+        sellerRating,
+        product.rating?.sellerComment ?? ""
+      )
+    );
+  }
+  // Las valoraciones van al principio, antes del aviso de valoración pendiente
+  ratingsRow.prepend(...cards);
+
+  // Aviso de pendiente: solo si participas en la venta y aún no has valorado
+  const hasRated = product.mine
+    ? typeof sellerRating === "number"
+    : typeof buyerRating === "number";
+  const canRate = product.mine || (await isBuyer(product));
+
+  pendingRatingCard.classList.toggle("d-none", !canRate || hasRated);
+  ratingFormContainer.classList.add("d-none");
+}
+
+/**
  * Rellena la página con los datos del producto.
  * @param product Producto a mostrar.
  */
-function showProduct(product: Product): void {
+async function showProduct(product: Product): Promise<void> {
   const status = STATUSES[product.status];
 
   mainPhoto.src = product.mainPhoto;
@@ -86,8 +210,7 @@ function showProduct(product: Product): void {
   buyBtn.classList.toggle("d-none", product.status !== 1 || product.mine);
   deleteBtn.classList.toggle("d-none", !product.mine);
 
-  // Temporal: la tarjeta de venta y valoraciones se completa en la parte 2
-  transactionCard.classList.add("d-none");
+  await showTransaction(product);
 }
 
 /**
@@ -134,7 +257,7 @@ buyBtn.addEventListener("click", async (): Promise<void> => {
   try {
     await productsService.buy(productId);
     // La respuesta de comprar está vacía: volvemos a pedir el producto
-    showProduct(await productsService.get(productId));
+    await showProduct(await productsService.get(productId));
   } catch (error) {
     alert(ErrorUtils.getMessage(error, "Could not buy the product"));
   }
@@ -148,6 +271,44 @@ deleteBtn.addEventListener("click", async (): Promise<void> => {
     location.assign("index.html");
   } catch (error) {
     alert(ErrorUtils.getMessage(error, "Could not delete the product"));
+  }
+});
+
+rateBtn.addEventListener("click", (): void => {
+  ratingFormContainer.classList.remove("d-none");
+  pendingRatingCard.classList.add("d-none");
+});
+
+cancelRatingBtn.addEventListener("click", (): void => {
+  ratingForm.reset();
+  ratingFormContainer.classList.add("d-none");
+  pendingRatingCard.classList.remove("d-none");
+});
+
+ratingForm.addEventListener("submit", async (event: Event): Promise<void> => {
+  event.preventDefault();
+
+  // El formulario tiene novalidate, así que validamos nosotros
+  if (!ratingForm.reportValidity()) return;
+
+  const score = (ratingForm.elements.namedItem("ratingScore") as RadioNodeList)
+    .value;
+  const comment = (
+    ratingForm.elements.namedItem("ratingComment") as HTMLTextAreaElement
+  ).value.trim();
+
+  const rating: RatingInsert = {
+    rating: Number(score),
+    comment,
+    product: productId,
+  };
+
+  try {
+    await ratingsService.post(rating);
+    ratingForm.reset();
+    await showProduct(await productsService.get(productId));
+  } catch (error) {
+    alert(ErrorUtils.getMessage(error, "Could not send the review"));
   }
 });
 
@@ -173,7 +334,7 @@ async function init(): Promise<void> {
 
   try {
     const product = await productsService.get(productId);
-    showProduct(product);
+    await showProduct(product);
     linkToProfile(ownerPhoto, product.owner.id);
     linkToProfile(ownerName, product.owner.id);
     showSellerLocation(product.owner);
