@@ -1,7 +1,7 @@
 import { AuthService } from "./classes/auth-service";
 import { ImageUtils } from "./classes/image-utils";
 import { MyGeolocation } from "./classes/my-geolocation";
-import type { ErrorResponse } from "./interfaces/responses";
+import { ErrorUtils } from "./classes/error-utils";
 import type { RegisterData } from "./interfaces/user";
 
 const authService = new AuthService();
@@ -85,11 +85,6 @@ registerForm.addEventListener("submit", async (event: Event): Promise<void> => {
     await authService.register(userInfo);
     location.assign("login.html");
   } catch (error) {
-    const { message, error: errorText } = error as ErrorResponse;
-    alert(
-      Array.isArray(message)
-        ? message.join("\n")
-        : (message ?? errorText ?? "Could not register")
-    );
+    alert(ErrorUtils.getMessage(error, "Could not register"));
   }
 });

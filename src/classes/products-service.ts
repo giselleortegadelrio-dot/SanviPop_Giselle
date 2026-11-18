@@ -1,5 +1,9 @@
 import { SERVER } from "../constants";
-import type { ProductsResponse } from "../interfaces/responses";
+import type { Product, ProductInsert } from "../interfaces/product";
+import type {
+  ProductsResponse,
+  SingleProductResponse,
+} from "../interfaces/responses";
 import { Http } from "./http";
 
 export class ProductsService {
@@ -33,6 +37,17 @@ export class ProductsService {
     );
   }
 
+  /**
+   * Crea un producto nuevo a nombre del usuario autenticado.
+   * @param product Datos del producto, con la foto en base64.
+   */
+  async post(product: ProductInsert): Promise<Product> {
+    const resp = await this.#http.post<SingleProductResponse, ProductInsert>(
+      `${SERVER}/products`,
+      product
+    );
+    return resp.product;
+  }
   /**
    * Elimina un producto (solo puede hacerlo su propietario).
    * @param id Id del producto.
